@@ -47,25 +47,61 @@ Nyomkövetés alapú fotó böngésző: A cél egy olyan mobil alkalmazás megva
 3. **Felhasználói Fiók Kezelési Oldal:**
    - Profil szerkesztése és felhasználói adatok megtekintése.
 
-## Implementációs Tervek:
+# Implementációs Tervek:
+## Projekt Indítása:
+  ### Github kezelés:
+   - Fejlesztéshez Github-ot használunk.Minden commit tartalmazzon egy hibaszámot. A commit üzenet példája: #{hibaszám} {commit_üzenet}. Példák a Git előzményekben. A commit üzenet legyen rövid és leíró szöveg a javított hibáról vagy implementált funkcióról.
+   - Parancsok:
+      ```bash
+      git pull
+      git commit
+      ```
+   ### Flutter Telepítése:
+   - A mobilalkalmazás fejlesztéséhez Flutter frameworket és Dart nyelvet használunk.
+   
+   - Látogass el a Flutter hivatalos weboldalára: [Flutter - Get Started](https://flutter.dev/docs/get-started/install).
 
-1. **Programozási Nyelv:**
-   - Dart (Flutter nyelv).
+   - Válaszd ki a saját operációs rendszeredet (Windows, macOS, vagy Linux).
+   - Töltsd le a Flutter SDK-t.
+   - Csomagold ki az letöltött zip fájlt egy megfelelő helyre.
+   - A `.bashrc` vagy `.zshrc` fájlban add hozzá a Flutter `bin` könyvtár elérését a PATH környezeti változóhoz.
 
-2. **Fejlesztői Környezet:**
-   - Flutter & Dart plugin a Visual Studio Code-ban vagy Android Studioban.
+      ```bash
+      export PATH="$PATH:`útvonal_az_unzipped_flutter_bin_mappához`"
+      ```
+   ## Fejlesztői környezet telepítése:
+   - A VSCode vagy Android Studio fejlesztői környezetet alkalmazzuk a kódszerkesztéshez és teszteléshez.
+   - A hatékony fejlesztéshez VSCode vagy Android Studio alkalmazás a Flutter & Dart pluginnel.
+   - Látogass el a [VSCode letöltési oldalára](https://code.visualstudio.com/), és töltsd le a telepítőt.
 
-3. **Állapotkezelés:**
-   - Provider vagy Riverpod a könnyű állapotkezeléshez.
+   ## Állapotkezelés:
+   - Az alkalmazás állapotának hatékony kezeléséhez válasszunk Provider-t vagy Riverpod-ot.
 
-4. **Adatbázis:**
-   - sqflite a helyi adatok kezeléséhez, vagy Firebase Firestore használata a felhőalapú adattároláshoz.
+   ## Adatbázis:
+   - Döntésünk alapján helyi vagy felhőalapú adatkezelést alkalmazunk.
+   - A helyi adatok tárolásához sqflite adatbázist használunk.
+   - Felhőalapú megoldásként fontoljuk meg a Firebase Firestore használatát.
 
-5. **UI Építőkockák:**
-   - Flutter widgetek, például ListTile, GridView, stb.
+   ## UI Építőkockák:
+   - Az alkalmazás felhasználói felületének hatékony kialakításához alkalmazzuk a Flutter beépített widgeteit, például ListTile, GridView, stb.
 
-6. **Hálózati Kommunikáció:**
-   - Dio vagy http csomagok a szükség esetén szerverrel történő kommunikációhoz.
 
-7. **Tesztelés:**
-   - Unit és widget tesztek a Dart-ban.
+   ## Tesztelés:
+   - Implementáljunk unit teszteket a Dart nyelv segítségével az alkalmazás funkcióinak tesztelésére.
+   - A felhasználói felület helyes működésének ellenőrzésére alkalmazzunk widget teszteket.
+   - Parancsok:
+     ```bash
+     flutter test
+     ```
+
+   ## Befejezés és Közzététel:
+   - Alaposan teszteljük az alkalmazást a VSCode vagy Android Studio környezetében.
+   - Készítsük el az APK vagy IPA fájlt az alkalmazás publikálásához.
+   - Közzétegyük az alkalmazást a Google Play-en és az App Store-ban, és tartsuk karban az esetleges frissítéseket.
+   - Parancsok:
+     ```bash
+     flutter build apk
+     flutter build ios
+     flutter pub publish
+     ```
+
