@@ -37,16 +37,22 @@ Nyomkövetés alapú fotó böngésző: A cél egy olyan mobil alkalmazás megva
    - Gombok a fénykép készítéséhez, terület vaggy pozició kijelőlésére és böngészési képernyőre navigálásra.
    - Térkép felület és a képek lokalizáció alapján ikonokon keresztül megjelenítve.
 
+![figma-0](https://github.com/czjanos/Geo-Gallery/assets/116583568/15ce5534-7c5e-481d-a3d6-f136d7664cf5)
+![figma-1](https://github.com/czjanos/Geo-Gallery/assets/116583568/637ab989-8369-490b-bc38-7bc671792956)
+
 2. **Fénykép Részletek Oldal:**
    - Kép nagy méretű megjelenítése.
    - Miniatür megjelenitése a további csoportban lévő képeknek.
-   - Címkék és metaadatok szerkesztése.
-   - Kép törlése gomb.
+
+![figma-4](https://github.com/czjanos/Geo-Gallery/assets/116583568/4f7ea881-b3f8-4d91-bfc3-694ba4947a74)
 
 3. **Böngészési képernyő:**
    - Galléria típusú, képek csempenézetben megjelenítve.
    - Kategórizálva dátum szerint.
    - Keresési és szűrési lehetőségek a metaadatokra.
+
+![figma-2](https://github.com/czjanos/Geo-Gallery/assets/116583568/d410312c-6329-4942-8f56-dc394cd13b27)
+![figma-3](https://github.com/czjanos/Geo-Gallery/assets/116583568/17cccf0e-cd4a-41a8-baee-7be3a6b9d71f)
 
 4. **Alapvető beállítások:**
    - Engedélyek kezelése (kamera, helymeghatározás stb.)
