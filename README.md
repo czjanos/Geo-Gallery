@@ -5,47 +5,51 @@ Nyomkövetés alapú fotó böngésző: A cél egy olyan mobil alkalmazás megva
 
 ## Funkcionális Tervek:
 
-1. **Fő funkciók:**
-   - Fényképek készítése GPS koordinátákkal.
-   - Fényképek címkézése vagy kategóriákba sorolása.
-   - Fényképek tárolása és kezelése.
+1. **Fényképek készítése GPS koordinátákkal**
+   - Felhasználók képeket készítenek a mobiltelefonjuk segítségével.
+   - Az így elkészült képeket, a telefon lokációja alapján, címkével látjuk el.
+     
+2. **Fényképek tárolása**
+   - Az alkalmazás az eszközön tárolja a felhasználók által készített képeket, valamint a hozzájuk rendelt címkéket.
+     
+3. **Fényképek böngészése**
+   - A felhasználók a tárolt képeket megtekinthetik és böngészhetik az alkalmazásban.
+   - Kétféle megjelenítés: térkép és lista nézet.
+   - A képeket lehet kategória szerint rendezni: készítés dátuma, lokáció alapján.
+   - A képek a térkép felületén jelennek meg, nagyítási szintnek megfelelően, a közel egy pontban eső képeket csoportosítjuk.
+   - A csoportosított képek nagyítás hatására egyedülálló vagy kisebb csoportokra bomlanak.
+   - Egy kép megtekintésekor, teljes képernyőben látjuk a képet. A csoporton belül lapozhatóak a képek.
 
-2. **Keresési funkciók:**
-   - Képek böngészése címkék vagy kategóriák alapján.
-   - Képek keresése térbeli pozíció alapján (kezdőpont és sugár, vagy terület kijelölés).
+4. **Keresési funkciók:**
+   - Képek böngészése szűrők nélkül. Rendezési szempontok szerint.
+   - Képek böngészése szűrő beállításokkal. (Lokáció és/vagy dátum).
+   - Képek keresése térbeli pozíció alapján (középpont és sugár, vagy terület kijelölés).
+   - Képek keresése két megadott időpont között.
 
-3. **Felhasználói fiókok:**
-   - Felhasználói regisztráció és bejelentkezés.
-   - Fényképek felhasználóihoz kötése.
-
-4. **Egyéb funkciók:**
-   - Fényképek megosztása más felhasználókkal.
-   - Fényképekhez kapcsolódó metaadatok szerkesztése.
 
 ## Statikus Tervek:
+![geogallery_UML](https://github.com/czjanos/Geo-Gallery/assets/116583568/dba90adc-ffef-4c5a-8d0e-460ab824f691)
 
-1. **Osztálydiagram:**
-   - `PhotoManager`: A fényképek kezelését végző osztály.
-   - `UserManager`: Felhasználók kezeléséért felelős osztály.
-   - `SearchManager`: Keresési funkciókat megvalósító osztály.
-   - `Photo`: A fényképek reprezentációjáért felelős osztály.
-
-2. **Adatbázis Sémája:**
-   - Táblák: `Users`, `Photos`.
-   - Kapcsolat: A felhasználókhoz tartozó fényképek külső kulcsokkal vannak kapcsolva.
 
 ## Felülettervezés:
 
 1. **Főképernyő:**
-   - Gombok a fénykép készítéséhez és böngészéshez.
-   - Keresési opciók és szűrők.
+   - Gombok a fénykép készítéséhez, terület vaggy pozició kijelőlésére és böngészési képernyőre navigálásra.
+   - Térkép felület és a képek lokalizáció alapján ikonokon keresztül megjelenítve.
 
 2. **Fénykép Részletek Oldal:**
    - Kép nagy méretű megjelenítése.
+   - Miniatür megjelenitése a további csoportban lévő képeknek.
    - Címkék és metaadatok szerkesztése.
+   - Kép törlése gomb.
 
-3. **Felhasználói Fiók Kezelési Oldal:**
-   - Profil szerkesztése és felhasználói adatok megtekintése.
+3. **Böngészési képernyő:**
+   - Galléria típusú, képek csempenézetben megjelenítve.
+   - Kategórizálva dátum szerint.
+   - Keresési és szűrési lehetőségek a metaadatokra.
+
+4. **Alapvető beállítások:**
+   - Engedélyek kezelése (kamera, helymeghatározás stb.)
 
 # Implementációs Tervek:
 ## Projekt Indítása:
