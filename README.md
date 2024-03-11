@@ -50,6 +50,8 @@ Nyomkövetés alapú fotó böngésző: A cél egy olyan mobil alkalmazás megva
 
 4. **Alapvető beállítások:**
    - Engedélyek kezelése (kamera, helymeghatározás stb.)
+  
+https://www.figma.com/proto/EQPWj0O6j29hDY9y1228ES/Geo-Gallery?type=design&node-id=1-2&t=DzA4P5iRrXIjIn0Y-1&scaling=scale-down&page-id=0%3A1&mode=design
 
 # Implementációs Tervek:
 ## Projekt Indítása:
