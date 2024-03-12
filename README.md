@@ -70,33 +70,27 @@ https://www.figma.com/proto/EQPWj0O6j29hDY9y1228ES/Geo-Gallery?type=design&node-
       ```
    ### Flutter Telepítése:
    - A mobilalkalmazás fejlesztéséhez Flutter frameworket és Dart nyelvet használunk.
-   
    - Látogass el a Flutter hivatalos weboldalára: [Flutter - Get Started](https://flutter.dev/docs/get-started/install).
-
    - Válaszd ki a saját operációs rendszeredet (Windows, macOS, vagy Linux).
    - Töltsd le a Flutter SDK-t.
    - Csomagold ki az letöltött zip fájlt egy megfelelő helyre.
    - A `.bashrc` vagy `.zshrc` fájlban add hozzá a Flutter `bin` könyvtár elérését a PATH környezeti változóhoz.
-
       ```bash
       export PATH="$PATH:`útvonal_az_unzipped_flutter_bin_mappához`"
       ```
-   ## Fejlesztői környezet telepítése:
+   ### Fejlesztői környezet telepítése:
    - A VSCode vagy Android Studio fejlesztői környezetet alkalmazzuk a kódszerkesztéshez és teszteléshez.
    - A hatékony fejlesztéshez VSCode vagy Android Studio alkalmazás a Flutter & Dart pluginnel.
-   - Látogass el a [VSCode letöltési oldalára](https://code.visualstudio.com/), és töltsd le a telepítőt.
+   - Látogass el a [VSCode letöltési oldalára](https://code.visualstudio.com/)/[Android studio letöltési oldalára](https://developer.android.com/studio), és töltsd le a telepítőt.
 
-   ## Állapotkezelés:
-   - Az alkalmazás állapotának hatékony kezeléséhez válasszunk Provider-t vagy Riverpod-ot.
+   ## Állapotkezelés, valamint UI felépítés:
+   - Az alkalmazás állapotának hatékony kezeléséhez válasszunk [Provider](https://pub.dev/packages/provider)-t vagy [Riverpod](https://pub.dev/packages/riverpod)-ot.  
+   - Az alkalmazás felhasználói felületének hatékony kialakításához alkalmazzuk a Flutter beépített widgeteit, például ListTile, GridView, stb.
 
    ## Adatbázis:
    - Döntésünk alapján helyi vagy felhőalapú adatkezelést alkalmazunk.
-   - A helyi adatok tárolásához sqflite adatbázist használunk.
-   - Felhőalapú megoldásként fontoljuk meg a Firebase Firestore használatát.
-
-   ## UI Építőkockák:
-   - Az alkalmazás felhasználói felületének hatékony kialakításához alkalmazzuk a Flutter beépített widgeteit, például ListTile, GridView, stb.
-
+   - A helyi adatok tárolásához [sqflite](https://pub.dev/packages/sqflite) adatbázist használunk.
+   - Felhőalapú megoldásként fontoljuk meg a [Firebase Firestore](https://firebase.flutter.dev/docs/firestore/overview/) használatát.
 
    ## Tesztelés:
    - Implementáljunk unit teszteket a Dart nyelv segítségével az alkalmazás funkcióinak tesztelésére.
@@ -106,9 +100,8 @@ https://www.figma.com/proto/EQPWj0O6j29hDY9y1228ES/Geo-Gallery?type=design&node-
      flutter test
      ```
 
-   ## Befejezés és Közzététel:
-   - Alaposan teszteljük az alkalmazást a VSCode vagy Android Studio környezetében.
-   - Készítsük el az APK vagy IPA fájlt az alkalmazás publikálásához.
+   ## Közzététel:
+   - Alapos tesztelés után készítsük el az APK vagy IPA fájlt az alkalmazás publikálásához.
    - Közzétegyük az alkalmazást a Google Play-en és az App Store-ban, és tartsuk karban az esetleges frissítéseket.
    - Parancsok:
      ```bash
