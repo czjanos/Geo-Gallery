@@ -86,6 +86,7 @@ https://www.figma.com/proto/EQPWj0O6j29hDY9y1228ES/Geo-Gallery?type=design&node-
    ## Állapotkezelés, valamint UI felépítés:
    - Az alkalmazás állapotának hatékony kezeléséhez válasszunk [Provider](https://pub.dev/packages/provider)-t vagy [Riverpod](https://pub.dev/packages/riverpod)-ot.  
    - Az alkalmazás felhasználói felületének hatékony kialakításához alkalmazzuk a Flutter beépített widgeteit, például ListTile, GridView, stb.
+   - [Google Maps](https://pub.dev/packages/google_maps_flutter) widget használata.
 
    ## Adatbázis:
    - Döntésünk alapján helyi vagy felhőalapú adatkezelést alkalmazunk.
