@@ -49,6 +49,10 @@
     <string>YES</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Your location description</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Used to select photos from your gallery</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Used to camera with your phone.</string>
     <!--  background location updates -->
     <!--
     <key>NSLocationAlwaysUsageDescription</key>

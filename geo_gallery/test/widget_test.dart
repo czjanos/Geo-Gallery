@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geo_gallery/screens/mainScreen.dart';
+import 'package:geo_gallery/screens/main_screen.dart';
 
 import 'package:geo_gallery/main.dart';
 

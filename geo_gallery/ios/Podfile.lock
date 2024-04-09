@@ -1,5 +1,11 @@
 PODS:
   - Flutter (1.0.0)
+  - flutter_exif_rotation (0.3.0):
+    - Flutter
+  - gallery_saver (0.0.1):
+    - Flutter
+  - geocoding_ios (1.0.5):
+    - Flutter
   - geolocator_apple (1.2.0):
     - Flutter
   - google_maps_flutter_ios (0.0.1):
@@ -10,11 +16,21 @@ PODS:
   - GoogleMaps/Base (6.2.1)
   - GoogleMaps/Maps (6.2.1):
     - GoogleMaps/Base
+  - image_picker_ios (0.0.1):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
+  - flutter_exif_rotation (from `.symlinks/plugins/flutter_exif_rotation/ios`)
+  - gallery_saver (from `.symlinks/plugins/gallery_saver/ios`)
+  - geocoding_ios (from `.symlinks/plugins/geocoding_ios/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/ios`)
   - google_maps_flutter_ios (from `.symlinks/plugins/google_maps_flutter_ios/ios`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
 
 SPEC REPOS:
   trunk:
@@ -23,16 +39,31 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
+  flutter_exif_rotation:
+    :path: ".symlinks/plugins/flutter_exif_rotation/ios"
+  gallery_saver:
+    :path: ".symlinks/plugins/gallery_saver/ios"
+  geocoding_ios:
+    :path: ".symlinks/plugins/geocoding_ios/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/ios"
   google_maps_flutter_ios:
     :path: ".symlinks/plugins/google_maps_flutter_ios/ios"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  flutter_exif_rotation: 36dbe4d0bb56b9f8d2cc99e3ad24dbb38b674ea9
+  gallery_saver: 9fc173c9f4fcc48af53b2a9ebea1b643255be542
+  geocoding_ios: a389ea40f6f548de6e63006a2e31bf66ff80769a
   geolocator_apple: b741765c55dc21950e3e106e8b3584e55cf81ce5
   google_maps_flutter_ios: f135b968a67c05679e0a53538e900b5c174b0d99
   GoogleMaps: 20d7b12be49a14287f797e88e0e31bc4156aaeb4
+  image_picker_ios: b545a5f16c0fa88e3ecbbce3ed4de45567a8ec18
+  path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
 
 PODFILE CHECKSUM: 2cb865c824376aef12e2eb059ab69c0b9158560c
 
