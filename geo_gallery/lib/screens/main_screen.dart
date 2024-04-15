@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:gallery_saver/gallery_saver.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:gallery_saver/gallery_saver.dart';
+import 'package:exif/exif.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import 'photo_gallery_screen.dart';
+import 'package:geo_gallery/services/image_location_database.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -16,16 +21,24 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   late GoogleMapController _mapController;
   Position? _currentPosition;
-  bool _isMapCreated = false;
   TextEditingController _searchController = TextEditingController();
+  late ImageLocationDatabase _imageLocationDatabase;
 
   @override
   void initState() {
     super.initState();
+    _imageLocationDatabase = ImageLocationDatabase();
+    _initializeDatabase();
+    _requestGalleryPermissionAndSaveImages(); // Call permission request and image saving
     _getCurrentLocation();
+
   }
 
-  void _getCurrentLocation() async {
+  void _initializeDatabase() async {
+    await _imageLocationDatabase.initDatabase();
+  }
+
+  Future<void> _getCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -35,6 +48,87 @@ class _MapScreenState extends State<MapScreen> {
       });
     } catch (e) {
       print('Error fetching location: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching location')),
+      );
+    }
+  }
+
+  void _openCamera() async {
+    try {
+      final XFile? pickedImage = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 80,
+      );
+      if (pickedImage != null) {
+        await _saveImageToDatabase(pickedImage.path);
+      }
+    } catch (e) {
+      print('Error opening camera: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening camera')),
+      );
+    }
+  }
+
+  Future<void> _saveImageToDatabase(String imagePath) async {
+    final exifData = await readExifFromBytes(File(imagePath).readAsBytesSync());
+    final dateTime = exifData['Image DateTime']?.printable ?? DateTime.now().toString();
+    await GallerySaver.saveImage(imagePath);
+
+    if (_currentPosition != null) {
+      await _imageLocationDatabase.insertImage(
+        imagePath,
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        dateTime,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Image saved to database')),
+      );
+    }
+  }
+
+void _requestGalleryPermissionAndSaveImages() async {
+  final status = await Permission.photos.status;
+  if (status.isGranted) {
+    // Ha már megvan az engedély, mentés a galériából
+    await _saveAllGalleryImages();
+  } else {
+    // Ha nincs meg az engedély, kérjük meg a felhasználót
+    final result = await Permission.photos.request();
+    if (result.isGranted) {
+      // Ha a felhasználó engedélyezte, mentés a galériából
+      await _saveAllGalleryImages();
+    } else {
+      // Ha a felhasználó megtagadta az engedélyt
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Permission denied to access gallery')),
+      );
+    }
+  }
+}
+
+
+  Future<void> _saveAllGalleryImages() async {
+    try {
+      final List<XFile>? galleryImages = await ImagePicker().pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 80,
+      );
+      if (galleryImages != null && galleryImages.isNotEmpty) {
+        for (XFile image in galleryImages) {
+          await _saveImageToDatabase(image.path);
+        }
+      }
+    } catch (e) {
+      print('Error saving images from gallery: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving images from gallery')),
+      );
     }
   }
 
@@ -55,27 +149,9 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     } catch (e) {
+      print('Error during search: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error during search')),
-      );
-    }
-  }
-
-  void _openCamera() async {
-    try {
-      final XFile? pickedImage = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 80,
-      );
-      if (pickedImage != null) {
-  
-      }
-    } catch (e) {
-      print('Error opening camera: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error opening camera')),
       );
     }
   }
@@ -83,10 +159,8 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Builder(
-        builder: (BuildContext context) {
-          if (_currentPosition != null) {
-            return Stack(
+      body: _currentPosition != null
+          ? Stack(
               children: [
                 GoogleMap(
                   mapType: MapType.normal,
@@ -103,63 +177,39 @@ class _MapScreenState extends State<MapScreen> {
                   mapToolbarEnabled: false,
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
-                    _isMapCreated = true;
                   },
                 ),
                 Positioned(
-                  top: 80.0,
+                  top: 20.0,
                   right: 20.0,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          // Handle settings button press
-                        },
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        child: Icon(Icons.settings),
-                      ),
-                      SizedBox(height: 8.0),
-                      ElevatedButton(
+                      FloatingActionButton(
                         onPressed: _openCamera,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
+                        heroTag: 'cameraBtn',
                         child: Icon(Icons.camera),
                       ),
-                      SizedBox(height: 8.0),
-                      ElevatedButton(
-                        onPressed: () {
+                      SizedBox(height: 16.0),
+                      FloatingActionButton(
+                        onPressed: () async {
+                          List<Map<String, dynamic>> images =
+                              await _imageLocationDatabase.getAllImages();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PhotoGalleryScreen(),
+                              builder: (context) =>
+                                  PhotoGalleryScreen(images: images),
                             ),
                           );
                         },
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
+                        heroTag: 'galleryBtn',
                         child: Icon(Icons.photo_library),
                       ),
-                      SizedBox(height: 8.0),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Handle grid button press
-                        },
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
+                      SizedBox(height: 16.0),
+                      FloatingActionButton(
+                        onPressed:() {},
+                        heroTag: 'gridBtn',
                         child: Icon(Icons.grid_on),
                       ),
                     ],
@@ -191,25 +241,6 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.location_on),
-                          onPressed: () {
-                            // Return to user's current location
-                            if (_currentPosition != null && _isMapCreated) {
-                              _mapController.animateCamera(
-                                CameraUpdate.newCameraPosition(
-                                  CameraPosition(
-                                    target: LatLng(
-                                      _currentPosition!.latitude,
-                                      _currentPosition!.longitude,
-                                    ),
-                                    zoom: 14.0,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        IconButton(
                           icon: Icon(Icons.search),
                           onPressed: () {
                             String query = _searchController.text;
@@ -223,14 +254,10 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ],
-            );
-          } else {
-            return Center(
+            )
+          : Center(
               child: CircularProgressIndicator(),
-            );
-          }
-        },
-      ),
+            ),
     );
   }
 }

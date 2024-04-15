@@ -37,10 +37,14 @@ dependencies:
   google_maps_flutter: ^2.6.0
   geolocator: ^7.6.2
   geocoding: ^2.0.0
-  image_picker: ^0.8.4
+  image_picker: ^0.8.4+4
   path_provider: ^2.0.5
   flutter_exif_rotation: ^0.4.0
   gallery_saver: ^2.0.1
+  shared_preferences: ^2.0.0
+  sqflite: ^2.0.0
+  permission_handler: ^10.1.0
+  exif: ^3.3.0
 
 dev_dependencies:
   flutter_test:

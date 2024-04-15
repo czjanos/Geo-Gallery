@@ -1,91 +1,71 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:exif/exif.dart';
+import 'dart:typed_data';
 
 class PhotoGalleryScreen extends StatefulWidget {
-  const PhotoGalleryScreen({Key? key}) : super(key: key);
+  final List<Map<String, dynamic>> images; // Definiáljuk a 'images' paramétert
+
+  const PhotoGalleryScreen({Key? key, required this.images}) : super(key: key);
 
   @override
   _PhotoGalleryScreenState createState() => _PhotoGalleryScreenState();
 }
 
 class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
-  List<XFile>? _imageFiles = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImagesFromGallery();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Photo Gallery'),
       ),
-      body: _buildBody(),
+      body: _buildImageGrid(),
     );
   }
 
-  Widget _buildBody() {
-    return _imageFiles != null && _imageFiles!.isNotEmpty
-        ? GridView.builder(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 4.0,
-              mainAxisSpacing: 4.0,
-            ),
-            itemCount: _imageFiles!.length,
-            itemBuilder: (context, index) {
-              if (index > 0) {
-                final prevImage = _imageFiles![index - 1];
-                final currImage = _imageFiles![index];
-                if (_shouldInsertSpace(prevImage, currImage)) {
-                  return Column(
-                    children: [
-                      SizedBox(height: 20.0),
-                      _buildImageWidget(currImage.path),
-                    ],
-                  );
-                }
-              }
-              return _buildImageWidget(_imageFiles![index].path);
-            },
-          )
-        : Center(
-            child: CircularProgressIndicator(),
-          );
-  }
-
-  Widget _buildImageWidget(String filePath) {
-    return Image.file(
-      File(filePath),
-      key: ValueKey(filePath),
-      fit: BoxFit.cover,
+  Widget _buildImageGrid() {
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 4.0,
+        mainAxisSpacing: 4.0,
+      ),
+      itemCount: widget.images.length, // Hivatkozás a widget.images-re
+      itemBuilder: (context, index) {
+        return _buildImageWidget(widget.images[index]); // Hivatkozás a widget.images-re
+      },
     );
   }
 
-  Future<void> _loadImagesFromGallery() async {
-    final picker = ImagePicker();
-    final pickedImages = await picker.pickMultiImage();
-    if (pickedImages != null && pickedImages.isNotEmpty) {
-      setState(() {
-        _imageFiles = _sortImagesByDate(pickedImages);
-      });
-    }
+  Widget _buildImageWidget(Map<String, dynamic> imageData) {
+    String imagePath = imageData['path'];
+
+    return FutureBuilder<Uint8List>(
+      future: _getImageBytes(imagePath),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        } else if (snapshot.hasError) {
+          return Text('Error loading image');
+        }
+
+        Uint8List? bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return Text('Invalid image data');
+        }
+
+        return Image.memory(
+          bytes,
+          key: ValueKey(imagePath),
+          fit: BoxFit.cover,
+        );
+      },
+    );
   }
 
-  List<XFile> _sortImagesByDate(List<XFile> images) {
-    images.sort((a, b) => File(a.path).lastModifiedSync().compareTo(File(b.path).lastModifiedSync()));
-    return images;
-  }
-
-  bool _shouldInsertSpace(XFile prevImage, XFile currImage) {
-    final prevDate = File(prevImage.path).lastModifiedSync();
-    final currDate = File(currImage.path).lastModifiedSync();
-    final differenceInDays = currDate.difference(prevDate).inDays;
-    
-    return differenceInDays > 1;
+  Future<Uint8List> _getImageBytes(String imagePath) async {
+    File imageFile = File(imagePath);
+    return await imageFile.readAsBytes();
   }
 }
