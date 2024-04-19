@@ -8,6 +8,7 @@ import 'package:gallery_saver/gallery_saver.dart';
 import 'package:exif/exif.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'photo_gallery_screen.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 
 class MapScreen extends StatefulWidget {
@@ -22,18 +23,19 @@ class _MapScreenState extends State<MapScreen> {
   Position? _currentPosition;
   TextEditingController _searchController = TextEditingController();
   late ImageLocationDatabase _imageLocationDatabase;
+  Set<Marker> _markers = Set();
 
   @override
   void initState() {
     super.initState();
     _imageLocationDatabase = ImageLocationDatabase();
     _initializeDatabase();
-    //_requestGalleryPermissionAndSaveImages();
     _loadAndSaveGalleryImages();
     _getCurrentLocation();
   }
 
   void _initializeDatabase() async {
+    _imageLocationDatabase = ImageLocationDatabase();
     await _imageLocationDatabase.initDatabase();
   }
 
@@ -51,6 +53,28 @@ class _MapScreenState extends State<MapScreen> {
         SnackBar(content: Text('Error fetching location')),
       );
     }
+  }
+
+  Future<void> _loadMarkersFromDatabase() async {
+    List<Map<String, dynamic>> images = await _imageLocationDatabase.getAllImages();
+    setState(() {
+      _markers = _createMarkers(images);
+    });
+  }
+
+  Set<Marker> _createMarkers(List<Map<String, dynamic>> images) {
+    return images.map((image) {
+      double lat = image['latitude'] as double;
+      double lng = image['longitude'] as double;
+      String imagePath = image['path'] as String;
+
+      return Marker(
+        markerId: MarkerId(imagePath),
+        position: LatLng(lat, lng),
+        infoWindow: InfoWindow(title: 'Image Marker', snippet: imagePath),
+        icon: BitmapDescriptor.defaultMarker,
+      );
+    }).toSet();
   }
 
   void _openCamera() async {
@@ -73,42 +97,34 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _saveImageToDatabase(String imagePath) async {
-    final exifData = await readExifFromBytes(File(imagePath).readAsBytesSync());
-    final dateTime = exifData['Image DateTime']?.printable ?? DateTime.now().toString();
-    await GallerySaver.saveImage(imagePath);
+    try {
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final String imageName = DateTime.now().millisecondsSinceEpoch.toString();
+      final String savedImagePath = '${appDir.path}/$imageName.jpg';
 
-    if (_currentPosition != null) {
-      await _imageLocationDatabase.insertImage(
-        imagePath,
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        dateTime,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Image saved to database')),
-      );
-    }
-  }
+      await File(imagePath).copy(savedImagePath);
 
-  void _requestGalleryPermissionAndSaveImages() async {
-    final status = await Permission.photos.status;
-    print('Gallery permission status: $status');
+      final exifData = await readExifFromBytes(File(savedImagePath).readAsBytesSync());
+      final dateTime = exifData['Image DateTime']?.printable ?? DateTime.now().toString();
 
-    if (status.isGranted) {
-      print('Gallery permission is granted');
-      await _loadAndSaveGalleryImages();
-    } else {
-      print('Gallery permission is not granted. Requesting permission...');
-      final result = await Permission.photos.request();
-      if (result.isGranted) {
-        print('Gallery permission granted after request');
-        await _loadAndSaveGalleryImages();
-      } else {
-        print('Gallery permission denied after request');
+      await GallerySaver.saveImage(savedImagePath);
+
+      if (_currentPosition != null) {
+        await _imageLocationDatabase.insertImage(
+          savedImagePath,
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          dateTime,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Permission denied to access gallery')),
+          SnackBar(content: Text('Image saved to database')),
         );
       }
+    } catch (e) {
+      print('Error saving image to database: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving image to database')),
+      );
     }
   }
 
@@ -181,6 +197,7 @@ class _MapScreenState extends State<MapScreen> {
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
+                  markers: _markers,
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
                   },
@@ -199,6 +216,7 @@ class _MapScreenState extends State<MapScreen> {
                       SizedBox(height: 16.0),
                       FloatingActionButton(
                         onPressed: () async {
+                          _loadMarkersFromDatabase();
                           List<Map<String, dynamic>> images =
                               await _imageLocationDatabase.getAllImages();
                           Navigator.push(

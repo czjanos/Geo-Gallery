@@ -25,8 +25,8 @@ class ImageLocationDatabase {
 
   Future<void> insertImage(
       String path, double latitude, double longitude, String date) async {
-    final db = _database;
-    await db.insert(
+    await _checkDatabaseInitialized();
+    await _database.insert(
       tableName,
       {
         'path': path,
@@ -39,15 +39,21 @@ class ImageLocationDatabase {
   }
 
   Future<List<Map<String, dynamic>>> getAllImages() async {
-    final db = _database;
-    return await db.query(
+    await _checkDatabaseInitialized();
+    return await _database.query(
       tableName,
       orderBy: 'date DESC',
     );
   }
 
   Future<void> deleteAllImages() async {
-    final db = _database;
-    await db.delete(tableName);
+    await _checkDatabaseInitialized();
+    await _database.delete(tableName);
+  }
+
+  Future<void> _checkDatabaseInitialized() async {
+    if (!_database.isOpen) {
+      await initDatabase();
+    }
   }
 }
