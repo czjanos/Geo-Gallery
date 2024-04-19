@@ -50,13 +50,8 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Your location description</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Used to select photos from your gallery</string>
+    <string>Our app needs access to your photo gallery</string>
     <key>NSCameraUsageDescription</key>
-    <string>Used to camera with your phone.</string>
-    <!--  background location updates -->
-    <!--
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>Your background location description</string>
-    -->
+    <string>Used to access the camera for taking photos.</string>
 </dict>
 </plist>

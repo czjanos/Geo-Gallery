@@ -23,17 +23,31 @@ class ImageLocationDatabase {
     );
   }
 
-  Future<void> insertImage(String path, double latitude, double longitude, String date) async {
+  Future<void> insertImage(
+      String path, double latitude, double longitude, String date) async {
     final db = _database;
     await db.insert(
       tableName,
-      {'path': path, 'latitude': latitude, 'longitude': longitude, 'date': date},
+      {
+        'path': path,
+        'latitude': latitude,
+        'longitude': longitude,
+        'date': date
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   Future<List<Map<String, dynamic>>> getAllImages() async {
     final db = _database;
-    return await db.query(tableName);
+    return await db.query(
+      tableName,
+      orderBy: 'date DESC',
+    );
+  }
+
+  Future<void> deleteAllImages() async {
+    final db = _database;
+    await db.delete(tableName);
   }
 }

@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'package:exif/exif.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import 'photo_gallery_screen.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 
@@ -29,9 +28,9 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _imageLocationDatabase = ImageLocationDatabase();
     _initializeDatabase();
-    _requestGalleryPermissionAndSaveImages(); // Call permission request and image saving
+    //_requestGalleryPermissionAndSaveImages();
+    _loadAndSaveGalleryImages();
     _getCurrentLocation();
-
   }
 
   void _initializeDatabase() async {
@@ -91,28 +90,29 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-void _requestGalleryPermissionAndSaveImages() async {
-  final status = await Permission.photos.status;
-  if (status.isGranted) {
-    // Ha már megvan az engedély, mentés a galériából
-    await _saveAllGalleryImages();
-  } else {
-    // Ha nincs meg az engedély, kérjük meg a felhasználót
-    final result = await Permission.photos.request();
-    if (result.isGranted) {
-      // Ha a felhasználó engedélyezte, mentés a galériából
-      await _saveAllGalleryImages();
+  void _requestGalleryPermissionAndSaveImages() async {
+    final status = await Permission.photos.status;
+    print('Gallery permission status: $status');
+
+    if (status.isGranted) {
+      print('Gallery permission is granted');
+      await _loadAndSaveGalleryImages();
     } else {
-      // Ha a felhasználó megtagadta az engedélyt
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Permission denied to access gallery')),
-      );
+      print('Gallery permission is not granted. Requesting permission...');
+      final result = await Permission.photos.request();
+      if (result.isGranted) {
+        print('Gallery permission granted after request');
+        await _loadAndSaveGalleryImages();
+      } else {
+        print('Gallery permission denied after request');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Permission denied to access gallery')),
+        );
+      }
     }
   }
-}
 
-
-  Future<void> _saveAllGalleryImages() async {
+  Future<void> _loadAndSaveGalleryImages() async {
     try {
       final List<XFile>? galleryImages = await ImagePicker().pickMultiImage(
         maxWidth: 1920,
@@ -120,14 +120,20 @@ void _requestGalleryPermissionAndSaveImages() async {
         imageQuality: 80,
       );
       if (galleryImages != null && galleryImages.isNotEmpty) {
+        await _imageLocationDatabase.deleteAllImages();
+
         for (XFile image in galleryImages) {
           await _saveImageToDatabase(image.path);
         }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Images saved to database')),
+        );
       }
     } catch (e) {
-      print('Error saving images from gallery: $e');
+      print('Error loading or saving images from gallery: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving images from gallery')),
+        SnackBar(content: Text('Error loading or saving images from gallery')),
       );
     }
   }
@@ -208,7 +214,7 @@ void _requestGalleryPermissionAndSaveImages() async {
                       ),
                       SizedBox(height: 16.0),
                       FloatingActionButton(
-                        onPressed:() {},
+                        onPressed: () {},
                         heroTag: 'gridBtn',
                         child: Icon(Icons.grid_on),
                       ),
