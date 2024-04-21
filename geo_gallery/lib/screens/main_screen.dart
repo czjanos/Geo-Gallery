@@ -6,10 +6,9 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'package:exif/exif.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'photo_gallery_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
+import 'photo_gallery_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -23,7 +22,7 @@ class _MapScreenState extends State<MapScreen> {
   Position? _currentPosition;
   TextEditingController _searchController = TextEditingController();
   late ImageLocationDatabase _imageLocationDatabase;
-  Set<Marker> _markers = Set();
+  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -35,7 +34,6 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _initializeDatabase() async {
-    _imageLocationDatabase = ImageLocationDatabase();
     await _imageLocationDatabase.initDatabase();
   }
 
@@ -75,6 +73,20 @@ class _MapScreenState extends State<MapScreen> {
         icon: BitmapDescriptor.defaultMarker,
       );
     }).toSet();
+  }
+
+  void _addMarkerAtLocation(double latitude, double longitude) {
+    setState(() {
+      _markers.clear(); // Töröljük az összes jelenlegi markert
+      _markers.add(
+        Marker(
+          markerId: MarkerId('searchedLocation'),
+          position: LatLng(latitude, longitude),
+          infoWindow: InfoWindow(title: 'Searched Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        ),
+      );
+    });
   }
 
   void _openCamera() async {
@@ -165,6 +177,7 @@ class _MapScreenState extends State<MapScreen> {
             14.0,
           ),
         );
+        _addMarkerAtLocation(location.latitude!, location.longitude!);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No results found')),
@@ -181,6 +194,9 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Geo Gallery'),
+      ),
       body: _currentPosition != null
           ? Stack(
               children: [
@@ -208,13 +224,16 @@ class _MapScreenState extends State<MapScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      FloatingActionButton(
+                      ElevatedButton(
                         onPressed: _openCamera,
-                        heroTag: 'cameraBtn',
-                        child: Icon(Icons.camera),
+                        style: ElevatedButton.styleFrom(
+                          shape: CircleBorder(),
+                          padding: EdgeInsets.all(16.0),
+                        ),
+                        child: Icon(Icons.camera_alt),
                       ),
                       SizedBox(height: 16.0),
-                      FloatingActionButton(
+                      ElevatedButton(
                         onPressed: () async {
                           _loadMarkersFromDatabase();
                           List<Map<String, dynamic>> images =
@@ -227,14 +246,33 @@ class _MapScreenState extends State<MapScreen> {
                             ),
                           );
                         },
-                        heroTag: 'galleryBtn',
+                        style: ElevatedButton.styleFrom(
+                          shape: CircleBorder(),
+                          padding: EdgeInsets.all(16.0),
+                        ),
                         child: Icon(Icons.photo_library),
                       ),
                       SizedBox(height: 16.0),
-                      FloatingActionButton(
-                        onPressed: () {},
-                        heroTag: 'gridBtn',
-                        child: Icon(Icons.grid_on),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_currentPosition != null) {
+                            _mapController.animateCamera(
+                              CameraUpdate.newLatLngZoom(
+                                LatLng(
+                                  _currentPosition!.latitude,
+                                  _currentPosition!.longitude,
+                                ),
+                                14.0,
+                              ),
+                            );
+                            _markers.clear(); // Töröljük az összes markert
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          shape: CircleBorder(),
+                          padding: EdgeInsets.all(16.0),
+                        ),
+                        child: Icon(Icons.my_location),
                       ),
                     ],
                   ),
@@ -247,21 +285,32 @@ class _MapScreenState extends State<MapScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.5),
+                          spreadRadius: 2,
+                          blurRadius: 7,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Search...',
-                              border: OutlineInputBorder(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search...',
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (value) {
+                                if (value.isNotEmpty) {
+                                  _goToLocation(value);
+                                }
+                              },
                             ),
-                            onSubmitted: (value) {
-                              if (value.isNotEmpty) {
-                                _goToLocation(value);
-                              }
-                            },
                           ),
                         ),
                         IconButton(
