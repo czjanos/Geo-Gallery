@@ -37,7 +37,41 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Default ignored files
+/shelf/
+/workspace.xml
+
+### Android ###
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log/OS Files
+*.log
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Android Studio captures folder
+captures/
+
+# Keystore files
+*.jks
+*.keystore
+
+# Android Profiling
+*.hprof
+
+### Android Patch ###
+gen-external-apklibs
+#####################
+
+# Google Services (e.g. APIs or Firebase)
+android/app/src/main/res/values/strings.xml
