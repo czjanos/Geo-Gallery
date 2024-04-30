@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -23,6 +27,7 @@ class _MapScreenState extends State<MapScreen> {
   TextEditingController _searchController = TextEditingController();
   late ImageLocationDatabase _imageLocationDatabase;
   Set<Marker> _markers = {};
+  bool _searchedLocationVisible = false;
 
   @override
   void initState() {
@@ -53,39 +58,149 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadMarkersFromDatabase() async {
-    List<Map<String, dynamic>> images = await _imageLocationDatabase.getAllImages();
-    setState(() {
-      _markers = _createMarkers(images);
-    });
+  Future<Uint8List> _getImageBytes(String path) async {
+    try {
+      final File imageFile = File(path);
+      if (!imageFile.existsSync()) {
+        print('Image file not found: $path');
+        return Uint8List(0);
+      }
+
+      return await imageFile.readAsBytes();
+    } catch (e) {
+      print('Error reading image file: $e');
+      return Uint8List(0);
+    }
   }
 
-  Set<Marker> _createMarkers(List<Map<String, dynamic>> images) {
-    return images.map((image) {
+  Future<BitmapDescriptor> _createCustomMarker(String imagePath) async {
+    try {
+      final Uint8List markerIconBytes = await _getImageBytes(imagePath);
+      if (markerIconBytes.isEmpty) {
+        print('Empty marker icon bytes.');
+        return BitmapDescriptor.defaultMarker;
+      }
+
+      double zoom = await _mapController.getZoomLevel();
+      double markerSize = 24.0 * (zoom / 12.0).clamp(10.0, 10.0).toDouble();
+
+      final ui.Codec codec = await ui.instantiateImageCodec(markerIconBytes,
+          targetWidth: markerSize.toInt(), targetHeight: markerSize.toInt());
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final Uint8List resizedIconBytes =
+          (await frameInfo.image.toByteData(format: ui.ImageByteFormat.png))!
+              .buffer
+              .asUint8List();
+
+      final BitmapDescriptor customIcon =
+          BitmapDescriptor.fromBytes(resizedIconBytes);
+
+      return customIcon;
+    } catch (e) {
+      print('Error creating custom marker: $e');
+      return BitmapDescriptor.defaultMarker;
+    }
+  }
+
+  Future<Uint8List> _getBytesFromAsset(
+      Uint8List markerIconBytes, int width, int height) async {
+    try {
+      final ui.Codec codec = await ui.instantiateImageCodec(markerIconBytes,
+          targetWidth: width, targetHeight: height);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final Uint8List data =
+          (await frameInfo.image.toByteData(format: ui.ImageByteFormat.png))!
+              .buffer
+              .asUint8List();
+      return data;
+    } catch (e) {
+      print('Error decoding image: $e');
+      return Uint8List(0);
+    }
+  }
+
+  Future<void> _loadMarkersFromDatabase() async {
+    List<Map<String, dynamic>> images =
+        await _imageLocationDatabase.getAllImages();
+    double zoom = await _mapController.getZoomLevel();
+
+    Set<Marker> markers = Set<Marker>();
+
+    for (var image in images) {
       double lat = image['latitude'] as double;
       double lng = image['longitude'] as double;
       String imagePath = image['path'] as String;
 
-      return Marker(
+      BitmapDescriptor customIcon = await _createCustomMarker(imagePath);
+
+      Marker marker = Marker(
         markerId: MarkerId(imagePath),
         position: LatLng(lat, lng),
         infoWindow: InfoWindow(title: 'Image Marker', snippet: imagePath),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: customIcon,
+        anchor: Offset(0.5, 0.5),
+        zIndex: (10 - zoom).toDouble(),
+        onTap: () {
+          print('Marker tapped: $imagePath');
+        },
       );
-    }).toSet();
+
+      markers.add(marker);
+    }
+
+    setState(() {
+      _markers = markers;
+    });
+  }
+
+  Future<Set<Marker>> _createMarkers(
+      List<Map<String, dynamic>> images, double zoom) async {
+    List<Marker> markers = [];
+
+    for (var image in images) {
+      double lat = image['latitude'] as double;
+      double lng = image['longitude'] as double;
+      String imagePath = image['path'] as String;
+
+      BitmapDescriptor customIcon = await _createCustomMarker(imagePath);
+
+      double imageSize = 24 * (zoom / 122);
+
+      Marker marker = Marker(
+        markerId: MarkerId(imagePath),
+        position: LatLng(lat, lng),
+        infoWindow: InfoWindow(title: 'Image Marker', snippet: imagePath),
+        icon: customIcon,
+        anchor: Offset(0.5, 0.5),
+        zIndex: (21 - zoom).toDouble(),
+        onTap: () {
+          print('Marker tapped: $imagePath');
+        },
+      );
+
+      markers.add(marker);
+    }
+
+    return Set<Marker>.of(markers);
   }
 
   void _addMarkerAtLocation(double latitude, double longitude) {
     setState(() {
-      _markers.clear(); // Töröljük az összes jelenlegi markert
-      _markers.add(
-        Marker(
-          markerId: MarkerId('searchedLocation'),
-          position: LatLng(latitude, longitude),
-          infoWindow: InfoWindow(title: 'Searched Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        ),
-      );
+      if (!_searchedLocationVisible) {
+        _markers.clear();
+        _markers.add(
+          Marker(
+            markerId: MarkerId('searchedLocation'),
+            position: LatLng(latitude, longitude),
+            infoWindow: InfoWindow(title: 'Searched Location'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure),
+          ),
+        );
+        _searchedLocationVisible = true;
+      } else {
+        return;
+      }
     });
   }
 
@@ -116,8 +231,10 @@ class _MapScreenState extends State<MapScreen> {
 
       await File(imagePath).copy(savedImagePath);
 
-      final exifData = await readExifFromBytes(File(savedImagePath).readAsBytesSync());
-      final dateTime = exifData['Image DateTime']?.printable ?? DateTime.now().toString();
+      final exifData =
+          await readExifFromBytes(File(savedImagePath).readAsBytesSync());
+      final dateTime =
+          exifData['Image DateTime']?.printable ?? DateTime.now().toString();
 
       await GallerySaver.saveImage(savedImagePath);
 
@@ -166,30 +283,33 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _goToLocation(String query) async {
-    try {
-      List<Location> locations = await locationFromAddress(query);
-      if (locations.isNotEmpty) {
-        Location location = locations.first;
-        _mapController.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(location.latitude!, location.longitude!),
-            14.0,
-          ),
-        );
-        _addMarkerAtLocation(location.latitude!, location.longitude!);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No results found')),
-        );
-      }
-    } catch (e) {
-      print('Error during search: $e');
+void _goToLocation(String query) async {
+  try {
+    List<Location> locations = await locationFromAddress(query);
+    if (locations.isNotEmpty) {
+      Location location = locations.first;
+      _mapController.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(location.latitude!, location.longitude!),
+          14.0,
+        ),
+      );
+      _addMarkerAtLocation(location.latitude!, location.longitude!);
+      
+      _searchedLocationVisible = false;
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error during search')),
+        SnackBar(content: Text('No results found')),
       );
     }
+  } catch (e) {
+    print('Error during search: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error during search')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +336,10 @@ class _MapScreenState extends State<MapScreen> {
                   markers: _markers,
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
+                    _loadMarkersFromDatabase();
+                  },
+                  onCameraMove: (CameraPosition position) {
+                    _loadMarkersFromDatabase();
                   },
                 ),
                 Positioned(
@@ -265,7 +389,7 @@ class _MapScreenState extends State<MapScreen> {
                                 14.0,
                               ),
                             );
-                            _markers.clear(); // Töröljük az összes markert
+                            _markers.clear();
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -298,7 +422,8 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
                             child: TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
