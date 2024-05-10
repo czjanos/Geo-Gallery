@@ -1,18 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:exif/exif.dart';
-import 'dart:io';
+import 'package:photo_manager/photo_manager.dart';
 import 'dart:typed_data';
+import 'dart:io';
 
 class PhotoGalleryScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> images;
-
-  const PhotoGalleryScreen({Key? key, required this.images}) : super(key: key);
-
   @override
   _PhotoGalleryScreenState createState() => _PhotoGalleryScreenState();
 }
 
 class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
+  List<Map<String, dynamic>> _images = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAndDisplayImages();
+  }
+
+  Future<void> _loadAndDisplayImages() async {
+    try {
+      final List<AssetEntity> mediaList = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+      ).then((value) => value[0].getAssetListRange(
+            start: 0,
+            end: 1000000,
+          ));
+
+      for (AssetEntity media in mediaList) {
+        await _displayImage(media);
+      }
+    } catch (e) {
+      print('Error loading images: $e');
+    }
+  }
+
+  Future<void> _displayImage(AssetEntity asset) async {
+    try {
+      double? latitude = asset.latitude;
+      double? longitude = asset.longitude;
+      String? createDateTime = asset.createDateTime?.toString();
+
+      if (latitude != null && longitude != null) {
+        File? file = await asset.file;
+        if (file != null) {
+          Uint8List bytes = await file.readAsBytes();
+          Map<String, dynamic> imageData = {
+            'bytes': bytes,
+            'date': createDateTime,
+          };
+          setState(() {
+            _images.add(imageData);
+          });
+        }
+      }
+    } catch (e) {
+      print('Error displaying image: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,80 +75,32 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
         crossAxisSpacing: 4.0,
         mainAxisSpacing: 4.0,
       ),
-      itemCount: widget.images.length,
+      itemCount: _images.length,
       itemBuilder: (context, index) {
-        return _buildImageWidget(widget.images[index]);
+        return _buildImageWidget(_images[index]);
       },
     );
   }
 
   Widget _buildImageWidget(Map<String, dynamic> imageData) {
-    String imagePath = imageData['path'];
+    Uint8List bytes = imageData['bytes'];
+    String? createDateTime = imageData['date'];
 
-    return FutureBuilder<Uint8List>(
-      future: _getImageBytes(imagePath),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return CircularProgressIndicator();
-        } else if (snapshot.hasError) {
-          return Text('Error loading image');
-        }
-
-        Uint8List? bytes = snapshot.data;
-        if (bytes == null || bytes.isEmpty) {
-          return Text('Invalid image data');
-        }
-
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Image.memory(
-                bytes,
-                key: ValueKey(imagePath),
-                fit: BoxFit.cover,
-              ),
-            ),
-            SizedBox(height: 8.0),
-            FutureBuilder<String>(
-              future: _getImageCreationDate(imagePath),
-              builder: (context, dateSnapshot) {
-                if (dateSnapshot.connectionState == ConnectionState.waiting) {
-                  return SizedBox.shrink();
-                } else if (dateSnapshot.hasError) {
-                  return Text('Error fetching date');
-                }
-
-                String? creationDate = dateSnapshot.data;
-                return creationDate != null
-                    ? Text(
-                        'Created: $creationDate',
-                        style: TextStyle(fontSize: 12.0),
-                      )
-                    : SizedBox.shrink();
-              },
-            ),
-          ],
-        );
-      },
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+          ),
+        ),
+        SizedBox(height: 8.0),
+        Text(
+          'Created: ${createDateTime ?? ''}',
+          style: TextStyle(fontSize: 12.0),
+        ),
+      ],
     );
-  }
-
-  Future<Uint8List> _getImageBytes(String imagePath) async {
-    File imageFile = File(imagePath);
-    return await imageFile.readAsBytes();
-  }
-
-  Future<String> _getImageCreationDate(String imagePath) async {
-    try {
-      final tags = await readExifFromBytes(File(imagePath).readAsBytesSync());
-      if (tags == null || !tags.containsKey('Image DateTime')) {
-        return 'Unknown date';
-      }
-      return tags['Image DateTime']?.printable ?? 'Unknown date';
-    } catch (e) {
-      print('Error reading image metadata: $e');
-      return 'Unknown date';
-    }
   }
 }
