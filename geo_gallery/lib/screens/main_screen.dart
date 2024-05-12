@@ -7,13 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as maps;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:gallery_saver/gallery_saver.dart';
-import 'package:exif/exif.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 import 'photo_gallery_screen.dart';
-import 'package:photo_gallery/photo_gallery.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 class MapScreen extends StatefulWidget {
@@ -30,6 +27,7 @@ class _MapScreenState extends State<MapScreen> {
   late ImageLocationDatabase _imageLocationDatabase;
   Set<maps.Marker> _markers = {};
   bool _searchedLocationVisible = false;
+  Timer? _reloadMarkersTimer;
 
   @override
   void initState() {
@@ -42,6 +40,12 @@ class _MapScreenState extends State<MapScreen> {
 
   void _initializeDatabase() async {
     await _imageLocationDatabase.initDatabase();
+  }
+
+  @override
+  void dispose() {
+    _reloadMarkersTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -79,7 +83,7 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final Uint8List markerIconBytes = await _getImageBytes(imagePath);
       if (markerIconBytes.isEmpty) {
-        print('Empty marker icon bytes.');
+        print('Empty marker icon bytes for image: $imagePath');
         return maps.BitmapDescriptor.defaultMarker;
       }
 
@@ -104,26 +108,21 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<Uint8List> _getBytesFromAsset(
-      Uint8List markerIconBytes, int width, int height) async {
-    try {
-      final ui.Codec codec = await ui.instantiateImageCodec(markerIconBytes,
-          targetWidth: width, targetHeight: height);
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      final Uint8List data =
-          (await frameInfo.image.toByteData(format: ui.ImageByteFormat.png))!
-              .buffer
-              .asUint8List();
-      return data;
-    } catch (e) {
-      print('Error decoding image: $e');
-      return Uint8List(0);
-    }
-  }
-
   Future<void> _loadMarkersFromDatabase() async {
-    List<Map<String, dynamic>> images =
-        await _imageLocationDatabase.getAllImages();
+    if (_mapController == null) return;
+
+    final LatLngBounds visibleRegion = await _mapController.getVisibleRegion();
+    final southwest = visibleRegion.southwest;
+    final northeast = visibleRegion.northeast;
+
+    final double minLat = southwest.latitude;
+    final double maxLat = northeast.latitude;
+    final double minLng = southwest.longitude;
+    final double maxLng = northeast.longitude;
+
+    List<Map<String, dynamic>> images = await _imageLocationDatabase
+        .getImagesInBounds(minLat, maxLat, minLng, maxLng);
+
     double zoom = await _mapController.getZoomLevel();
 
     Set<maps.Marker> markers = Set<maps.Marker>();
@@ -155,35 +154,12 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  Future<Set<maps.Marker>> _createMarkers(
-      List<Map<String, dynamic>> images, double zoom) async {
-    List<maps.Marker> markers = [];
-
-    for (var image in images) {
-      double lat = image['latitude'] as double;
-      double lng = image['longitude'] as double;
-      String imagePath = image['path'] as String;
-
-      maps.BitmapDescriptor customIcon = await _createCustomMarker(imagePath);
-
-      double imageSize = 24 * (zoom / 122);
-
-      maps.Marker marker = maps.Marker(
-        markerId: maps.MarkerId(imagePath),
-        position: maps.LatLng(lat, lng),
-        infoWindow: maps.InfoWindow(title: 'Image Marker', snippet: imagePath),
-        icon: customIcon,
-        anchor: Offset(0.5, 0.5),
-        zIndex: (21 - zoom).toDouble(),
-        onTap: () {
-          print('Marker tapped: $imagePath');
-        },
-      );
-
-      markers.add(marker);
-    }
-
-    return Set<maps.Marker>.of(markers);
+  void _loadMarkersFromDatabaseWithDelay() {
+    _reloadMarkersTimer
+        ?.cancel();
+    _reloadMarkersTimer = Timer(Duration(milliseconds: 500), () {
+      _loadMarkersFromDatabase();
+    });
   }
 
   void _addMarkerAtLocation(double latitude, double longitude) {
@@ -215,7 +191,12 @@ class _MapScreenState extends State<MapScreen> {
         imageQuality: 80,
       );
       if (pickedImage != null) {
-       // await _saveImageToDatabase(pickedImage.path);
+        await _imageLocationDatabase.insertImage(
+          pickedImage.path,
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          DateTime.now().toString(),
+        );
       }
     } catch (e) {
       print('Error opening camera: $e');
@@ -225,55 +206,52 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-Future<void> _saveImageToDatabase(AssetEntity asset) async {
-  try {
-    double? latitude = asset.latitude;
-    double? longitude = asset.longitude;
+  Future<void> _saveImageToDatabase(AssetEntity asset) async {
+    try {
+      double? latitude = asset.latitude;
+      double? longitude = asset.longitude;
 
-    File? file = await asset.file;
+      File? file = await asset.file;
 
-    if (latitude != null && longitude != null && file != null) {
-      await _imageLocationDatabase.insertImage(
-        '', 
-        latitude,
-        longitude,
-        asset.createDateTime.toString(),
+      if (latitude != null && longitude != null && file != null) {
+        await _imageLocationDatabase.insertImage(
+          '',
+          latitude,
+          longitude,
+          asset.createDateTime.toString(),
+        );
+      } else {
+        throw Exception("Latitude, longitude, or file is null.");
+      }
+    } catch (e) {
+      print('Error saving image to database: $e');
+      ScaffoldMessenger.of(context)?.showSnackBar(
+        SnackBar(content: Text('Error saving image to database')),
       );
-    } else {
-      throw Exception("Latitude, longitude, or file is null.");
     }
-  } catch (e) {
-    print('Error saving image to database: $e');
-    ScaffoldMessenger.of(context)?.showSnackBar(
-      SnackBar(content: Text('Error saving image to database')),
-    );
   }
-}
 
+  Future<void> _loadAndSaveGalleryImages() async {
+    try {
+      final List<AssetEntity> mediaList = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+      )
+          .then((value) => value[0].getAssetListRange(
+                start: 0,
+                end: 1000000,
+              ))
+          .then((value) => value.toList());
 
-Future<void> _loadAndSaveGalleryImages() async {
-  try {
-    final List<AssetEntity> mediaList = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
-    )
-        .then((value) => value[0].getAssetListRange(
-              start: 0,
-              end: 1000000,
-            ))
-        .then((value) => value.toList());
-
-    for (AssetEntity media in mediaList) {
-      await _saveImageToDatabase(media);
+      for (AssetEntity media in mediaList) {
+        await _saveImageToDatabase(media);
+      }
+    } catch (e) {
+      print('Error loading or saving images from gallery: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading or saving images from gallery')),
+      );
     }
-
-  } catch (e) {
-    print('Error loading or saving images from gallery: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error loading or saving images from gallery')),
-    );
   }
-}
-
 
   void _goToLocation(String query) async {
     try {
@@ -327,10 +305,10 @@ Future<void> _loadAndSaveGalleryImages() async {
                   markers: _markers,
                   onMapCreated: (maps.GoogleMapController controller) {
                     _mapController = controller;
-                    //_loadMarkersFromDatabase();
+                    _loadMarkersFromDatabase();
                   },
                   onCameraMove: (maps.CameraPosition position) {
-                    //_loadMarkersFromDatabase();
+                    _loadMarkersFromDatabaseWithDelay();
                   },
                 ),
                 Positioned(
@@ -350,7 +328,6 @@ Future<void> _loadAndSaveGalleryImages() async {
                       SizedBox(height: 16.0),
                       ElevatedButton(
                         onPressed: () async {
-                          //_loadMarkersFromDatabase();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
