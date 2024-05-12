@@ -48,6 +48,7 @@ dependencies:
   cached_network_image: ^3.2.0
   photo_gallery: ^2.2.1
   photo_manager: ^3.1.0
+  intl: ^0.17.0
 
 dev_dependencies:
   flutter_test:
