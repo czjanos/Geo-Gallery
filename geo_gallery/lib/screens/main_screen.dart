@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as maps;
 import 'package:geolocator/geolocator.dart';
@@ -11,7 +12,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 import 'photo_gallery_screen.dart';
-import 'package:photo_manager/photo_manager.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -28,6 +28,8 @@ class _MapScreenState extends State<MapScreen> {
   Set<maps.Marker> _markers = {};
   bool _searchedLocationVisible = false;
   Timer? _reloadMarkersTimer;
+  double _lastZoomLevel = 0.0;
+  final Map<String, List<Map<String, dynamic>>> _clusteredMarkers = {};
 
   @override
   void initState() {
@@ -111,6 +113,11 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _loadMarkersFromDatabase() async {
     if (_mapController == null) return;
 
+    double zoom = await _mapController.getZoomLevel();
+    if ((_lastZoomLevel - zoom).abs() < 2) return;
+
+    _lastZoomLevel = zoom;
+
     final LatLngBounds visibleRegion = await _mapController.getVisibleRegion();
     final southwest = visibleRegion.southwest;
     final northeast = visibleRegion.northeast;
@@ -123,40 +130,78 @@ class _MapScreenState extends State<MapScreen> {
     List<Map<String, dynamic>> images = await _imageLocationDatabase
         .getImagesInBounds(minLat, maxLat, minLng, maxLng);
 
-    double zoom = await _mapController.getZoomLevel();
+    _clusterMarkers(images);
 
     Set<maps.Marker> markers = Set<maps.Marker>();
 
-    for (var image in images) {
-      double lat = image['latitude'] as double;
-      double lng = image['longitude'] as double;
-      String imagePath = image['path'] as String;
-
-      maps.BitmapDescriptor customIcon = await _createCustomMarker(imagePath);
-
-      maps.Marker marker = maps.Marker(
-        markerId: maps.MarkerId(imagePath),
-        position: maps.LatLng(lat, lng),
-        infoWindow: maps.InfoWindow(title: 'Image Marker', snippet: imagePath),
-        icon: customIcon,
-        anchor: Offset(0.5, 0.5),
-        zIndex: (10 - zoom).toDouble(),
-        onTap: () {
-          print('Marker tapped: $imagePath');
-        },
+    _clusteredMarkers.forEach((key, value) {
+      final LatLng position = LatLng(
+        value.fold(
+                0.0, (prev, element) => prev + element['latitude'] as double) /
+            value.length,
+        value.fold(
+                0.0, (prev, element) => prev + element['longitude'] as double) /
+            value.length,
       );
+      final int count = value.length;
+      final BitmapDescriptor clusterIcon = BitmapDescriptor.defaultMarker;
 
-      markers.add(marker);
-    }
+      markers.add(maps.Marker(
+        markerId: maps.MarkerId(position.toString()),
+        position: position,
+        icon: clusterIcon,
+        onTap: () {
+          _onMarkerTapped(value);
+        },
+        infoWindow: InfoWindow(
+          title: 'Multiple Images Here',
+          snippet: '$count images',
+        ),
+      ));
+    });
 
     setState(() {
       _markers = markers;
     });
   }
 
+  void _onMarkerTapped(List<Map<String, dynamic>> images) {
+    Widget content = SingleChildScrollView(
+      child: Column(
+        children: images.map((image) {
+          String imagePath = image['path'] as String;
+          File imageFile = File(imagePath);
+
+          if (imageFile.existsSync()) {
+            return Image.file(imageFile);
+          } else {
+            return Text('Image not loaded.');
+          }
+        }).toList(),
+      ),
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Images'),
+          content: content,
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Back'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _loadMarkersFromDatabaseWithDelay() {
-    _reloadMarkersTimer
-        ?.cancel();
+    _reloadMarkersTimer?.cancel();
     _reloadMarkersTimer = Timer(Duration(milliseconds: 500), () {
       _loadMarkersFromDatabase();
     });
@@ -182,6 +227,42 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  void _addClusterMarker() {
+    _markers.clear();
+    _markers.add(
+      maps.Marker(
+        markerId: maps.MarkerId('clusterMarker'),
+        position: maps.LatLng(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        ),
+        infoWindow: maps.InfoWindow(title: 'Multiple Images Here'),
+        icon: maps.BitmapDescriptor.defaultMarkerWithHue(
+          maps.BitmapDescriptor.hueYellow,
+        ),
+      ),
+    );
+  }
+
+  void _clusterMarkers(List<Map<String, dynamic>> images) {
+    _clusteredMarkers.clear();
+    for (var image in images) {
+      double lat = image['latitude'] as double;
+      double lng = image['longitude'] as double;
+      String imagePath = image['path'] as String;
+
+      final key = '$lat-$lng';
+      if (!_clusteredMarkers.containsKey(key)) {
+        _clusteredMarkers[key] = [];
+      }
+      _clusteredMarkers[key]!.add(image);
+    }
+  }
+
+  void _addMarkersToMap() {
+    _loadMarkersFromDatabase();
+  }
+
   void _openCamera() async {
     try {
       final XFile? pickedImage = await ImagePicker().pickImage(
@@ -198,6 +279,7 @@ class _MapScreenState extends State<MapScreen> {
           DateTime.now().toString(),
         );
       }
+      _addMarkersToMap();
     } catch (e) {
       print('Error opening camera: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -212,10 +294,15 @@ class _MapScreenState extends State<MapScreen> {
       double? longitude = asset.longitude;
 
       File? file = await asset.file;
+      if (file == null) {
+        throw Exception("File is null.");
+      }
+
+      String originalImagePath = file.path;
 
       if (latitude != null && longitude != null && file != null) {
         await _imageLocationDatabase.insertImage(
-          '',
+          originalImagePath,
           latitude,
           longitude,
           asset.createDateTime.toString(),
@@ -309,6 +396,11 @@ class _MapScreenState extends State<MapScreen> {
                   },
                   onCameraMove: (maps.CameraPosition position) {
                     _loadMarkersFromDatabaseWithDelay();
+                  },
+                  onCameraMoveStarted: () {
+                  },
+                  onCameraIdle: () {
+                    _addMarkersToMap();
                   },
                 ),
                 Positioned(
