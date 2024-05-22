@@ -12,6 +12,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 import 'photo_gallery_screen.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 import 'package:flutter_map_math/flutter_geo_math.dart';
 import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
@@ -296,6 +297,14 @@ class _MapScreenState extends State<MapScreen> {
           _currentPosition!.longitude,
           DateTime.now().toString(),
         );
+
+         await GallerySaver.saveImage(pickedImage.path).then((bool? success) {
+          if (success == true) {
+            print('Image saved to gallery');
+          } else {
+            print('Failed to save image to gallery');
+          }
+        });
       }
       _addMarkersToMap();
     } catch (e) {
