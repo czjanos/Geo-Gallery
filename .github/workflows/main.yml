@@ -1,0 +1,31 @@
+name: Flutter Release
+
+on:
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+jobs:
+  build_appbundle:
+    name: Flutter Release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: "17"
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+      - name: Change to project directory
+        run: cd geo_gallery
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Clean build
+        run: flutter clean
+      - name: Build APK
+        run: flutter build apk --debug --split-per-abi
+
