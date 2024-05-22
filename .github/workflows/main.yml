@@ -21,7 +21,7 @@ jobs:
         with:
           channel: "stable"
       - name: Change to project directory
-        run: cd geo_gallery
+        run: cd Geo-Gallery/geo_gallery
       - name: Get dependencies
         run: flutter pub get
       - name: Clean build
