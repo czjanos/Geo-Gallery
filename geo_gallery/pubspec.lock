@@ -214,6 +214,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.1"
+  flutter_map_math:
+    dependency: "direct main"
+    description:
+      name: flutter_map_math
+      sha256: "4ac7e68a0862cb22a49484e5ae5c8ed01794fd3d58e85362cf3c3cf2c1b8cf2e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.7"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -480,6 +488,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.8.1"
+  latlong2:
+    dependency: "direct main"
+    description:
+      name: latlong2
+      sha256: "98227922caf49e6056f91b6c56945ea1c7b166f28ffcd5fb8e72fc0b453cc8fe"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -509,6 +525,14 @@ packages:
     description:
       name: lints
       sha256: cbf8d4b858bb0134ef3ef87841abdf8d63bfc255c266b7bf6b39daa1085c4290
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
+  maps_toolkit:
+    dependency: "direct main"
+    description:
+      name: maps_toolkit
+      sha256: "277877f9505208acacd2a0794ef190e836a5ffee58ebc8efc5b9ca8de50e3e2f"
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"

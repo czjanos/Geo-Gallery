@@ -49,6 +49,9 @@ dependencies:
   photo_gallery: ^2.2.1
   photo_manager: ^3.1.0
   intl: ^0.17.0
+  latlong2: ^0.9.1
+  flutter_map_math: ^0.1.7
+  maps_toolkit: ^3.0.0
 
 dev_dependencies:
   flutter_test:

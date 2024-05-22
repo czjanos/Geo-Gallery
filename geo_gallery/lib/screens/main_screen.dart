@@ -12,6 +12,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geo_gallery/services/image_location_database.dart';
 import 'photo_gallery_screen.dart';
+import 'package:flutter_map_math/flutter_geo_math.dart';
+import 'package:maps_toolkit/maps_toolkit.dart' as mp;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -22,6 +24,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late maps.GoogleMapController _mapController;
+  late FlutterMapMath _flutterMapMath;
   Position? _currentPosition;
   TextEditingController _searchController = TextEditingController();
   late ImageLocationDatabase _imageLocationDatabase;
@@ -31,10 +34,25 @@ class _MapScreenState extends State<MapScreen> {
   double _lastZoomLevel = 0.0;
   final Map<String, List<Map<String, dynamic>>> _clusteredMarkers = {};
 
+  //Selection related
+  bool _isDrawCircle = false;
+  bool _isDrawRectangle = false;
+  bool _isSelectedMarkerGalleryVisible = false;
+  double _selectionCircleRadius = 10;
+  maps.Circle _selectionCircle =
+      const maps.Circle(circleId: CircleId('selectionCircle'), visible: false);
+  maps.Polygon _selectionPolygon = const maps.Polygon(
+      polygonId: maps.PolygonId('selectionPolygon'), visible: false);
+  maps.LatLng _lastTappedLatLng = maps.LatLng(0, 0);
+  List<maps.LatLng> _tappedLatLngs = [];
+  Set<maps.Marker> _selectedMarkers = {};
+  List<Map<String, dynamic>> _selectedImages = [];
+
   @override
   void initState() {
     super.initState();
     _imageLocationDatabase = ImageLocationDatabase();
+    _flutterMapMath = FlutterMapMath();
     _initializeDatabase();
     _loadAndSaveGalleryImages();
     _getCurrentLocation();
@@ -367,6 +385,200 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  void _toggleDrawCircle() {
+    setState(() {
+      _isDrawCircle = true;
+      _isDrawRectangle = false;
+    });
+  }
+
+  void _toggleDrawPolygon() {
+    setState(() {
+      _isDrawCircle = false;
+      _updateSelectionCircle(visible: false);
+      _isDrawRectangle = true;
+    });
+  }
+
+  void _cancelAllDrawTool() {
+    setState(() {
+      _isDrawCircle = false;
+      _isDrawRectangle = false;
+      _tappedLatLngs = [];
+      _updateSelectionCircle(visible: false);
+    });
+  }
+
+  void _addLatLng(maps.LatLng latLng) {
+    setState(() {
+      if (_isDrawCircle) {
+        _lastTappedLatLng = latLng;
+        _updateSelectionCircle();
+        _updateSelectionPolygon(visible: false);
+      } else if (_isDrawRectangle) {
+        _lastTappedLatLng = latLng;
+        _updateSelectionCircle(visible: false);
+        _tappedLatLngs.add(latLng);
+        _updateSelectionPolygon();
+      }
+    });
+  }
+
+  void _updateSelectionPolygon({bool visible = true}) {
+    Set<Marker> selectedMarkers = {};
+    if (visible) {
+      if (_selectionPolygon.points.length > 2) {
+        maps.LatLng maxPos = _selectionPolygon.points[1];
+        double maxDistance = 0;
+
+        List<mp.LatLng> actLatLngList = _selectionPolygon.points
+            .map((point) => mp.LatLng(point.latitude, point.longitude))
+            .toList();
+        for (maps.Marker marker in _markers) {
+          if (mp.PolygonUtil.containsLocation(
+              mp.LatLng(marker.position.latitude, marker.position.longitude),
+              actLatLngList,
+              true)) {
+            selectedMarkers.add(marker);
+            double distance = _flutterMapMath.distanceBetween(
+                marker.position.latitude,
+                marker.position.longitude,
+                _selectionPolygon.points[0].latitude,
+                _selectionPolygon.points[0].longitude,
+                "meters");
+            if (distance > maxDistance) {
+              maxDistance = distance;
+              maxPos = marker.position;
+            }
+            print('Polygon contains markers: ${selectedMarkers}');
+          }
+        }
+        if (selectedMarkers.isNotEmpty) {
+          _imageLocationDatabase
+              .getImagesInBounds(
+            _selectionPolygon.points[0].latitude,
+            maxPos.latitude,
+            _selectionPolygon.points[0].longitude,
+            maxPos.longitude,
+          )
+              .then((images) {
+            setState(() {
+              print('Selected images: ${images}');
+              _selectedImages = images;
+            });
+          }).onError((error, stackTrace) {
+            setState(() {
+              _selectedImages = [];
+            });
+          });
+        } else {
+          setState(() {
+            _selectedMarkers = {};
+            _selectedImages = [];
+          });
+        }
+      }
+    } else {
+      setState(() {
+        _selectedMarkers = {};
+        _selectedImages = [];
+        _tappedLatLngs = [];
+      });
+    }
+    setState(() {
+      _selectedMarkers = selectedMarkers;
+      _selectionPolygon = maps.Polygon(
+          polygonId: const maps.PolygonId('selectionPolygon'),
+          strokeWidth: 2,
+          fillColor: const Color(0xFF006491).withOpacity(0.2),
+          consumeTapEvents: visible,
+          onTap: () {
+            print('Polygon tapped! ${_selectedImages}');
+            _onMarkerTapped(_selectedImages);
+          },
+          visible: visible,
+          points: _tappedLatLngs);
+    });
+  }
+
+  void _updateSelectionCircle({bool visible = true}) {
+    maps.LatLng maxDistancePos = const maps.LatLng(0, 0);
+    double maxDistance = 0;
+
+    Set<Marker> selectedMarkers = {};
+    if (visible) {
+      for (maps.Marker marker in _markers) {
+        double distance = _flutterMapMath.distanceBetween(
+            _selectionCircle.center.latitude,
+            _selectionCircle.center.longitude,
+            marker.position.latitude,
+            marker.position.longitude,
+            "meters");
+        if (distance < _selectionCircleRadius) {
+          if (maxDistance < distance) {
+            maxDistance = distance;
+            maxDistancePos = marker.position;
+          }
+          selectedMarkers.add(marker);
+        }
+      }
+      if (selectedMarkers.isNotEmpty) {
+        _imageLocationDatabase
+            .getImagesInBounds(
+          _selectionCircle.center.latitude,
+          maxDistancePos.latitude,
+          _selectionCircle.center.longitude,
+          maxDistancePos.longitude,
+        )
+            .then((images) {
+          setState(() {
+            print('Selected images: ${images}');
+            _selectedImages = images;
+          });
+        }).onError((error, stackTrace) {
+          setState(() {
+            _selectedImages = [];
+          });
+        });
+      } else {
+        setState(() {
+          _selectedImages = [];
+        });
+      }
+    } else {
+      setState(() {
+        _selectedImages = [];
+      });
+    }
+
+    setState(() {
+      _selectedMarkers = selectedMarkers;
+      _selectionCircle = maps.Circle(
+          circleId: const CircleId('selectionCircle'),
+          center: _lastTappedLatLng,
+          radius: _selectionCircleRadius,
+          strokeWidth: 2,
+          fillColor: const Color(0xFF006491).withOpacity(0.2),
+          consumeTapEvents: visible,
+          onTap: () {
+            print('Circle tapped! ${_selectedImages}');
+            _onMarkerTapped(_selectedImages);
+          },
+          visible: visible);
+    });
+
+    // _selectedMarkers = _markers.where((marker) {
+    //   double distance = _flutterMapMath.distanceBetween(
+    //       _selectionCircle.center.latitude,
+    //       _selectionCircle.center.longitude,
+    //       marker.position.latitude,
+    //       marker.position.longitude,
+    //       "meters");
+    //   return distance < _selectionCircle.radius;
+    // }).toSet();
+    print('Selected markers: ${_selectedMarkers}');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -377,6 +589,14 @@ class _MapScreenState extends State<MapScreen> {
           ? Stack(
               children: [
                 maps.GoogleMap(
+                  onTap: (latLng) {
+                    print(
+                        'Tapped latitude: ${latLng.latitude}, longitude: ${latLng.longitude}');
+                    _addLatLng(latLng);
+                  },
+                  circles: {_selectionCircle},
+                  polygons:
+                      _tappedLatLngs.isNotEmpty ? {_selectionPolygon} : {},
                   mapType: maps.MapType.normal,
                   initialCameraPosition: maps.CameraPosition(
                     target: maps.LatLng(
@@ -397,8 +617,7 @@ class _MapScreenState extends State<MapScreen> {
                   onCameraMove: (maps.CameraPosition position) {
                     _loadMarkersFromDatabaseWithDelay();
                   },
-                  onCameraMoveStarted: () {
-                  },
+                  onCameraMoveStarted: () {},
                   onCameraIdle: () {
                     _addMarkersToMap();
                   },
@@ -455,9 +674,105 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                         child: Icon(Icons.my_location),
                       ),
+                      SizedBox(height: 16.0),
+                      ElevatedButton(
+                        onPressed: () {
+                          _toggleDrawCircle();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          shape: CircleBorder(),
+                          padding: EdgeInsets.all(16.0),
+                        ),
+                        child: Icon(Icons.add_circle),
+                      ),
+                      SizedBox(height: 16.0),
+                      ElevatedButton(
+                        onPressed: () {
+                          _toggleDrawPolygon();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          shape: CircleBorder(),
+                          padding: EdgeInsets.all(16.0),
+                        ),
+                        child: Icon(Icons.add_box),
+                      ),
                     ],
                   ),
                 ),
+                _isDrawCircle
+                    ? Positioned(
+                        bottom: 80.0,
+                        left: 20.0,
+                        right: 20.0,
+                        child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.5),
+                                  spreadRadius: 2,
+                                  blurRadius: 7,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Slider(
+                                  value: _selectionCircleRadius,
+                                  max: 1000,
+                                  divisions: 100,
+                                  label:
+                                      _selectionCircleRadius.round().toString(),
+                                  onChanged: (double value) {
+                                    setState(() {
+                                      _selectionCircleRadius = value;
+                                      _updateSelectionCircle();
+                                    });
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.cancel),
+                                  onPressed: () {
+                                    _cancelAllDrawTool();
+                                  },
+                                ),
+                              ],
+                            )))
+                    : const SizedBox(),
+                _isDrawRectangle
+                    ? Positioned(
+                        bottom: 80.0,
+                        left: 20.0,
+                        right: 20.0,
+                        child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.5),
+                                  spreadRadius: 2,
+                                  blurRadius: 7,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text("Drawing polygon"),
+                                IconButton(
+                                  icon: Icon(Icons.cancel),
+                                  onPressed: () {
+                                    _cancelAllDrawTool();
+                                  },
+                                ),
+                              ],
+                            )))
+                    : const SizedBox(),
                 Positioned(
                   bottom: 20.0,
                   left: 20.0,

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -58,13 +60,17 @@ class ImageLocationDatabase {
   }
 
   Future<List<Map<String, dynamic>>> getImagesInBounds(
-    double minLat, double maxLat, double minLng, double maxLng) async {
-  await _checkDatabaseInitialized();
+      double minLat, double maxLat, double minLng, double maxLng) async {
+    await _checkDatabaseInitialized();
 
-  return await _database.rawQuery(
-    'SELECT * FROM $tableName WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?',
-    [minLat, maxLat, minLng, maxLng],
-  );
-}
-
+    return await _database.rawQuery(
+      'SELECT * FROM $tableName WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?',
+      [
+        min(minLat, maxLat),
+        max(minLat, maxLat),
+        min(minLng, maxLng),
+        max(minLng, maxLng)
+      ],
+    );
+  }
 }
