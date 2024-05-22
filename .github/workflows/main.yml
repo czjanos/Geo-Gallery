@@ -16,6 +16,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Change to project directory
+      run: cd geo_gallery
+
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -33,6 +36,9 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+
+    - name: Change to project directory
+      run: cd geo_gallery
 
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
