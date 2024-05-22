@@ -13,12 +13,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Move to project directory
-        run: cd geo_gallery
+        with:
+          path: geo_gallery
       - name: Set up Flutter
         uses: subosito/flutter-action@v1
         with:
           channel: "stable"
+      - name: Change to project directory
+        run: cd geo_gallery
       - name: Get dependencies
         run: flutter pub get
       - name: Clean build
